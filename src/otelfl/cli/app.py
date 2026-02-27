@@ -31,12 +31,6 @@ _common_parser.add_argument(
 )
 _common_parser.add_argument("--flagd-url", help="flagd-ui base URL")
 _common_parser.add_argument("--locust-url", help="Locust API base URL")
-_common_parser.add_argument(
-    "--ts",
-    metavar="NAME",
-    default=None,
-    help="Log timestamped event to NAME.json",
-)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +38,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog="otelfl",
         description="Control OpenTelemetry Demo feature flags and load generator",
         parents=[_common_parser],
+    )
+    parser.add_argument(
+        "--ts",
+        metavar="NAME",
+        default=None,
+        help="Log timestamped event to NAME.json",
     )
 
     subparsers = parser.add_subparsers(dest="command")

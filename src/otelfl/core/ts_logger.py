@@ -110,3 +110,4 @@ def append_event(ts_name: str, event: dict, ts_dir: Path | None = None) -> None:
             os.replace(str(tmp), str(filepath))
         finally:
             fcntl.flock(lockfile, fcntl.LOCK_UN)
+    lockpath.unlink(missing_ok=True)
