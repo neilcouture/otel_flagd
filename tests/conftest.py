@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
+import httpx
 import pytest
 
 from otelfl.core.flagd_client import FlagdClient
 from otelfl.core.experiment_logger import ExperimentLogger
-
-# Path to the real flagd config for reference data
-REAL_CONFIG = Path(__file__).parent.parent.parent / "opentelemetry-demo/src/flagd/demo.flagd.json"
 
 
 @pytest.fixture
@@ -37,29 +34,49 @@ def sample_config() -> dict:
     }
 
 
-@pytest.fixture
-def config_file(tmp_path: Path, sample_config: dict) -> Path:
-    """Write sample config to a temp file and return its path."""
-    path = tmp_path / "demo.flagd.json"
-    path.write_text(json.dumps(sample_config, indent=2) + "\n")
-    return path
+class FlagdMockTransport(httpx.BaseTransport):
+    """In-memory mock for the flagd-ui HTTP API."""
+
+    def __init__(self, initial_config: dict) -> None:
+        self._config = initial_config
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "GET" and path.endswith("/api/read"):
+            return httpx.Response(200, json=self._config)
+        elif request.method == "POST" and path.endswith("/api/write"):
+            body = json.loads(request.content)
+            self._config = body["data"]
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
 
 
 @pytest.fixture
-def flagd_client(config_file: Path) -> FlagdClient:
-    return FlagdClient(config_file)
+def flagd_client(sample_config: dict) -> FlagdClient:
+    transport = FlagdMockTransport(sample_config)
+    client = FlagdClient("http://test-flagd:8080/feature")
+    client._http = httpx.Client(transport=transport)
+    return client
+
+
+@pytest.fixture
+def real_config() -> dict:
+    """Full flagd config matching the OpenTelemetry demo."""
+    config_path = Path.home() / "sideProjects/opentelemetry-demo/src/flagd/demo.flagd.json"
+    if not config_path.exists():
+        pytest.skip("Real flagd config not found")
+    return json.loads(config_path.read_text())
+
+
+@pytest.fixture
+def real_flagd_client(real_config: dict) -> FlagdClient:
+    """FlagdClient backed by the full OTel demo flag set, mocked over HTTP."""
+    transport = FlagdMockTransport(real_config)
+    client = FlagdClient("http://test-flagd:8080/feature")
+    client._http = httpx.Client(transport=transport)
+    return client
 
 
 @pytest.fixture
 def experiment_logger() -> ExperimentLogger:
     return ExperimentLogger()
-
-
-@pytest.fixture
-def real_config_file(tmp_path: Path) -> Path | None:
-    """Copy the real flagd config to tmp_path for integration-style tests."""
-    if not REAL_CONFIG.exists():
-        pytest.skip("Real flagd config not found")
-    dest = tmp_path / "demo.flagd.json"
-    shutil.copy(REAL_CONFIG, dest)
-    return dest

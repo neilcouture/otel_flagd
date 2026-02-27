@@ -11,17 +11,32 @@ from otelfl.config import Settings
 from otelfl.core.experiment_logger import ExperimentLogger
 from otelfl.core.flagd_client import FlagdClient
 from otelfl.core.locust_client import LocustClient
-from otelfl.cli import flag_commands, load_commands, stats_commands, experiment_commands, scenario_commands
+from otelfl.cli import (
+    flag_commands,
+    load_commands,
+    stats_commands,
+    experiment_commands,
+    scenario_commands,
+)
 
 
 # Shared parent parser so --output-format works before or after the subcommand
 _common_parser = argparse.ArgumentParser(add_help=False)
 _common_parser.add_argument(
-    "--output-format", "-f", choices=["text", "json"], default="text",
+    "--output-format",
+    "-f",
+    choices=["text", "json"],
+    default="text",
     help="Output format (default: text)",
 )
-_common_parser.add_argument("--flagd-config", help="Path to flagd config JSON file")
+_common_parser.add_argument("--flagd-url", help="flagd-ui base URL")
 _common_parser.add_argument("--locust-url", help="Locust API base URL")
+_common_parser.add_argument(
+    "--ts",
+    metavar="NAME",
+    default=None,
+    help="Log timestamped event to NAME.json",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,9 +66,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(2)
 
     settings = Settings()
-    if args.flagd_config:
-        from pathlib import Path
-        settings.flagd_config = Path(args.flagd_config)
+    if args.flagd_url:
+        settings.flagd_url = args.flagd_url
     if args.locust_url:
         settings.locust_url = args.locust_url
 
@@ -62,16 +76,16 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "tui":
         from otelfl.tui.app import OtelFLApp
+
         app = OtelFLApp(settings=settings)
         app.run()
         return
 
+    code = 0
     if args.command == "flag":
-        client = FlagdClient(settings.flagd_config)
+        client = FlagdClient(settings.flagd_url)
         code = flag_commands.run(args, client, console)
-        sys.exit(code)
-
-    if args.command in ("load", "stats"):
+    elif args.command in ("load", "stats"):
         client = LocustClient(base_url=settings.locust_url)
         try:
             if args.command == "load":
@@ -80,14 +94,20 @@ def main(argv: list[str] | None = None) -> None:
                 code = stats_commands.run(args, client, console)
         finally:
             client.close()
-        sys.exit(code)
-
-    if args.command == "scenario":
-        client = FlagdClient(settings.flagd_config)
+    elif args.command == "scenario":
+        client = FlagdClient(settings.flagd_url)
         code = scenario_commands.run(args, client, console)
-        sys.exit(code)
-
-    if args.command == "experiment":
+    elif args.command == "experiment":
         logger = ExperimentLogger()
         code = experiment_commands.run(args, logger, console)
-        sys.exit(code)
+
+    # --- Timestamp logging ---
+    ts_name = getattr(args, "ts", None)
+    if ts_name and code == 0:
+        from otelfl.core.ts_logger import build_event, append_event
+
+        event = build_event(args)
+        if event is not None:
+            append_event(ts_name, event, ts_dir=settings.ts_dir)
+
+    sys.exit(code)

@@ -4,19 +4,24 @@
 
 set -euo pipefail
 
+TS=${1:-spike_test}
+OTELFL_ARGS="--ts $TS"
+[ -n "${OTELFL_LOCUST_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --locust-url $OTELFL_LOCUST_URL"
+[ -n "${OTELFL_FLAGD_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --flagd-url $OTELFL_FLAGD_URL"
+
 echo "=== Starting normal mode ==="
-otelfl load start --mode normal
+otelfl $OTELFL_ARGS load start --mode normal
 
 echo "=== Waiting 5 seconds before spike ==="
 sleep 5
 
-echo "=== Spiking to 20 users for 5 minutes ==="
-otelfl load start --mode high --run-time 5m
+echo "=== Spiking to 20 users for 2 minutes ==="
+otelfl $OTELFL_ARGS load start --mode high --run-time 2m
 
-echo "=== Waiting 5 minutes for spike to complete ==="
-sleep 300
+echo "=== Waiting 2 minutes for spike to complete ==="
+sleep 120
 
 echo "=== Returning to normal mode ==="
-otelfl load start --mode normal
+otelfl $OTELFL_ARGS load start --mode normal
 
 echo "=== Scenario complete ==="

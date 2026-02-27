@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
+
+import httpx
 
 from otelfl.models import FlagDefinition
 
@@ -22,22 +22,31 @@ class InvalidVariantError(FlagdError):
 
 
 class FlagdClient:
-    """Direct file-based client for flagd configuration.
+    """HTTP client for flagd-ui REST API.
 
-    Flagd watches the config file for changes, so writing to it triggers hot-reload.
-    Every operation does a fresh file read (no caching).
+    Talks to the flagd-ui service (e.g. http://host:8080/feature/) to read
+    and write flag configuration. The flagd-ui writes the config file on disk
+    and flagd's file watcher hot-reloads it.
     """
 
-    def __init__(self, config_path: Path | str) -> None:
-        self.config_path = Path(config_path)
+    def __init__(self, base_url: str) -> None:
+        self.base_url = base_url.rstrip("/")
+        self._http = httpx.Client(timeout=10.0)
 
     def _read_config(self) -> dict[str, Any]:
-        if not self.config_path.exists():
-            raise FlagdError(f"Config file not found: {self.config_path}")
-        return json.loads(self.config_path.read_text())
+        try:
+            resp = self._http.get(f"{self.base_url}/api/read")
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as e:
+            raise FlagdError(f"Failed to read flags from {self.base_url}: {e}") from e
 
     def _write_config(self, config: dict[str, Any]) -> None:
-        self.config_path.write_text(json.dumps(config, indent=2) + "\n")
+        try:
+            resp = self._http.post(f"{self.base_url}/api/write", json={"data": config})
+            resp.raise_for_status()
+        except httpx.HTTPError as e:
+            raise FlagdError(f"Failed to write flags to {self.base_url}: {e}") from e
 
     def _parse_flag(self, name: str, data: dict[str, Any]) -> FlagDefinition:
         return FlagDefinition(
@@ -50,9 +59,7 @@ class FlagdClient:
 
     def list_flags(self) -> list[FlagDefinition]:
         config = self._read_config()
-        return [
-            self._parse_flag(name, data) for name, data in config.get("flags", {}).items()
-        ]
+        return [self._parse_flag(name, data) for name, data in config.get("flags", {}).items()]
 
     def get_flag(self, name: str) -> FlagDefinition:
         config = self._read_config()

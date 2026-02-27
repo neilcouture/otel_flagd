@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
+import httpx
 import pytest
 
 from otelfl.core.flagd_client import (
@@ -91,22 +89,15 @@ class TestResetFlag:
             assert f.default_variant == "off"
 
 
-class TestFileHandling:
-    def test_missing_config_raises(self, tmp_path: Path) -> None:
-        client = FlagdClient(tmp_path / "nonexistent.json")
-        with pytest.raises(FlagdError, match="not found"):
+class TestHTTPErrors:
+    def test_connection_error_raises(self) -> None:
+        def raise_error(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("refused")
+
+        client = FlagdClient("http://bad-host:8080/feature")
+        client._http = httpx.Client(transport=httpx.MockTransport(raise_error))
+        with pytest.raises(FlagdError, match="Failed to read"):
             client.list_flags()
-
-    def test_preserves_schema_key(self, config_file: Path, flagd_client: FlagdClient) -> None:
-        flagd_client.set_flag("boolFlag", "on")
-        data = json.loads(config_file.read_text())
-        assert "$schema" in data
-
-    def test_preserves_indent(self, config_file: Path, flagd_client: FlagdClient) -> None:
-        flagd_client.set_flag("boolFlag", "on")
-        text = config_file.read_text()
-        # indent=2 means we expect 2-space indentation
-        assert '  "flags"' in text
 
 
 class TestFlagState:
@@ -152,32 +143,3 @@ class TestSnapshot:
         assert len(changes) == 0
 
 
-class TestWithRealConfig:
-    def test_lists_14_flags(self, real_config_file: Path) -> None:
-        client = FlagdClient(real_config_file)
-        flags = client.list_flags()
-        assert len(flags) == 14
-
-    def test_real_flag_types(self, real_config_file: Path) -> None:
-        client = FlagdClient(real_config_file)
-        flags = {f.name: f for f in client.list_flags()}
-        # Boolean flags
-        assert flags["adHighCpu"].is_boolean is True
-        assert flags["cartFailure"].is_boolean is True
-        # Multi-variant flags
-        assert flags["paymentFailure"].is_boolean is False
-        assert len(flags["paymentFailure"].variants) == 7
-        assert flags["emailMemoryLeak"].is_boolean is False
-
-    def test_toggle_real_boolean_flag(self, real_config_file: Path) -> None:
-        client = FlagdClient(real_config_file)
-        flag = client.toggle_flag("adHighCpu")
-        assert flag.default_variant == "on"
-        flag = client.toggle_flag("adHighCpu")
-        assert flag.default_variant == "off"
-
-    def test_set_real_multi_flag(self, real_config_file: Path) -> None:
-        client = FlagdClient(real_config_file)
-        flag = client.set_flag("paymentFailure", "50%")
-        assert flag.default_variant == "50%"
-        assert flag.current_value == 0.5

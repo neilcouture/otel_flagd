@@ -52,7 +52,7 @@ class OtelFLApp(App):
     def __init__(self, settings: Settings | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self.settings = settings or Settings()
-        self.flagd_client = FlagdClient(self.settings.flagd_config)
+        self.flagd_client = FlagdClient(self.settings.flagd_url)
         self.locust_client = AsyncLocustClient(base_url=self.settings.locust_url)
         self.experiment_logger = ExperimentLogger()
         self.run_mode_mgr = RunModeManager()
