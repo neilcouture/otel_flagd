@@ -10,6 +10,11 @@ OTELFL_ARGS="--ts $TS"
 [ -n "${OTELFL_LOCUST_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --locust-url $OTELFL_LOCUST_URL"
 [ -n "${OTELFL_FLAGD_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --flagd-url $OTELFL_FLAGD_URL"
 
+
+PROMETHEUS_URL="${OTELFL_PROMETHEUS_URL:-http://localhost:9090}"
+OUTDIR="${OTELFL_FETCH_OUTDIR:-./fetch_results}"
+mkdir -p "$OUTDIR"
+
 HOLD=3600  # minutes in seconds
 
 # Each entry: "flagName variant"
