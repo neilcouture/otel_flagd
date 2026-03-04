@@ -5,12 +5,12 @@
 
 set -euo pipefail
 
-TS=${1:-all_failures_30mins}
+TS=${1:-all_failures_60mins}
 OTELFL_ARGS="--ts $TS"
 [ -n "${OTELFL_LOCUST_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --locust-url $OTELFL_LOCUST_URL"
 [ -n "${OTELFL_FLAGD_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --flagd-url $OTELFL_FLAGD_URL"
 
-HOLD=1800  # 30 minutes in seconds
+HOLD=3600  # minutes in seconds
 
 # Each entry: "flagName variant"
 # For boolean flags the variant is "on".
