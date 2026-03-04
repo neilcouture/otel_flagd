@@ -66,14 +66,17 @@ for entry in "${FLAGS[@]}"; do
     echo "    Holding for $(( HOLD / 60 )) minutes..."
     sleep $HOLD
 
-    CSVFILE="$OUTDIR/${FLAG}_$(date '+%Y%m%d_%H%M%S').csv"
-    echo "    Fetching metrics → $CSVFILE"
-    otelfl $OTELFL_ARGS fetch --url "$PROMETHEUS_URL" --outfile "$CSVFILE" --minutes $(( HOLD / 60 )) \
-        || echo "    [WARN] Fetch failed, continuing..."
-
     echo "    Resetting $FLAG"
     otelfl $OTELFL_ARGS flag reset "$FLAG" \
         || echo "    [WARN] Reset failed, continuing..."
+
+    echo "    Waiting 30s for services to settle..."
+    sleep 30
+
+    CSVFILE="$OUTDIR/${FLAG}_$(date '+%Y%m%d_%H%M%S').csv"
+    echo "    Fetching metrics → $CSVFILE"
+    otelfl $OTELFL_ARGS fetch --url "$PROMETHEUS_URL" --outfile "$CSVFILE" --minutes $(( HOLD / 60 + 1 )) \
+        || echo "    [WARN] Fetch failed, continuing..."
 done
 
 echo ""
