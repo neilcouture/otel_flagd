@@ -47,7 +47,8 @@ def run(args: argparse.Namespace, console: Console) -> int:
     try:
         if not output_json:
             console.print(f"Discovering metrics on [cyan]{prometheus_url}[/] ...")
-        the_metrics = get_metrics_dataframe2(prometheus_url)
+        the_metrics_df = get_metrics_dataframe2(prometheus_url)
+        the_metrics = the_metrics_df['metric']
 
         if not output_json:
             console.print(f"Found [bold]{len(the_metrics)}[/] metric series")
