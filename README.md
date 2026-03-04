@@ -32,6 +32,27 @@ pip install -e .
 otelfl --help
 ```
 
+## Fetch Prometheus Metrics
+
+Fetch all Prometheus metrics for a time window and save to CSV. Uses the `otel_etl` library.
+
+`PYTHONPATH=./ otelfl fetch --url http://localhost:9090 --outfile ./somename.csv --minutes 5`
+
+```bash
+# Fetch last 60 minutes of metrics
+otelfl fetch --url http://localhost:9090 --outfile metrics.csv --minutes 60
+
+# Custom step resolution
+otelfl fetch --url http://localhost:9090 --outfile metrics.csv --minutes 30 --step 30s
+```
+
+| Flag | Required | Default | Purpose |
+|------|----------|---------|---------|
+| `--url` | yes | — | Prometheus base URL |
+| `--outfile` | yes | — | Output CSV file path |
+| `--minutes` | no | 60 | Minutes of history to fetch |
+| `--step` | no | 60s | Query resolution step |
+
 ## Configuration
 
 Settings can be overridden with environment variables:
@@ -51,5 +72,5 @@ TUI (otelfl/tui/)  ──┘
 ```
 
 - **Core services** — flagd file client, Locust HTTP client, experiment logger, run modes, chaos scenarios
-- **CLI** — argparse subcommands: `flag`, `load`, `stats`, `experiment`, `scenario`, `tui`
+- **CLI** — argparse subcommands: `flag`, `load`, `stats`, `experiment`, `scenario`, `fetch`, `tui`
 - **TUI** — Textual app with 2x2 grid: Flag Panel, Load Panel, Stats Panel, Timeline Panel
