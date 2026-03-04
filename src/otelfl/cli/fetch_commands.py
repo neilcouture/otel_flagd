@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 from rich.console import Console
@@ -25,6 +26,9 @@ def register(subparsers: argparse._SubParsersAction, parents: list | None = None
     fetch_parser.add_argument(
         "--step", default="60s", help="Query resolution step (default: 60s)"
     )
+    fetch_parser.add_argument(
+        "--retries", type=int, default=3, help="Number of retries on failure (default: 3)"
+    )
 
 
 def run(args: argparse.Namespace, console: Console) -> int:
@@ -43,41 +47,60 @@ def run(args: argparse.Namespace, console: Console) -> int:
     prometheus_url = args.url
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(minutes=args.minutes)
+    max_retries = getattr(args, "retries", 3)
 
-    try:
-        if not output_json:
-            console.print(f"Discovering metrics on [cyan]{prometheus_url}[/] ...")
-        the_metrics_df = get_metrics_dataframe2(prometheus_url)
-        the_metrics = the_metrics_df['metric']
+    for attempt in range(1, max_retries + 1):
+        try:
+            if not output_json:
+                console.print(f"Discovering metrics on [cyan]{prometheus_url}[/] ...")
+            try:
+                the_metrics_df = get_metrics_dataframe2(prometheus_url)
+            except KeyError:
+                raise RuntimeError(
+                    "Prometheus returned no series data (possibly overloaded or unavailable)"
+                )
+            if the_metrics_df.empty or 'metric' not in the_metrics_df.columns:
+                raise RuntimeError("No metrics found on Prometheus (empty response)")
+            the_metrics = the_metrics_df['metric']
 
-        if not output_json:
-            console.print(f"Found [bold]{len(the_metrics)}[/] metric series")
-            console.print(
-                f"Fetching last [bold]{args.minutes}[/] minutes "
-                f"(step={args.step}) ..."
-            )
-        client = PrometheusClient(prometheus_url)
-        raw_df = client.fetch_metrics_range(the_metrics, start_time, end_time, args.step)
+            if not output_json:
+                console.print(f"Found [bold]{len(the_metrics)}[/] metric series")
+                console.print(
+                    f"Fetching last [bold]{args.minutes}[/] minutes "
+                    f"(step={args.step}) ..."
+                )
+            client = PrometheusClient(prometheus_url)
+            raw_df = client.fetch_metrics_range(the_metrics, start_time, end_time, args.step)
 
-        raw_df.to_csv(args.outfile, index=False)
+            raw_df.to_csv(args.outfile, index=False)
 
-        if output_json:
-            console.print(json.dumps({
-                "file": args.outfile,
-                "rows": len(raw_df),
-                "metrics": len(the_metrics),
-                "start": start_time.isoformat(),
-                "end": end_time.isoformat(),
-            }))
-        else:
-            console.print(
-                f"[green]Saved [bold]{len(raw_df)}[/] rows to {args.outfile}[/]"
-            )
-    except Exception as e:
-        if output_json:
-            console.print(json.dumps({"error": str(e)}))
-        else:
-            console.print(f"[red]Error:[/] {e}")
-        return 1
+            if output_json:
+                console.print(json.dumps({
+                    "file": args.outfile,
+                    "rows": len(raw_df),
+                    "metrics": len(the_metrics),
+                    "start": start_time.isoformat(),
+                    "end": end_time.isoformat(),
+                }))
+            else:
+                console.print(
+                    f"[green]Saved [bold]{len(raw_df)}[/] rows to {args.outfile}[/]"
+                )
+            return 0
+        except Exception as e:
+            if attempt < max_retries:
+                wait = 10 * attempt
+                if not output_json:
+                    console.print(
+                        f"[yellow]Attempt {attempt}/{max_retries} failed: {e} "
+                        f"— retrying in {wait}s...[/]"
+                    )
+                time.sleep(wait)
+            else:
+                if output_json:
+                    console.print(json.dumps({"error": str(e)}))
+                else:
+                    console.print(f"[red]Error after {max_retries} attempts:[/] {e}")
+                return 1
 
-    return 0
+    return 1

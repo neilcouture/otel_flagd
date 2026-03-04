@@ -3,7 +3,7 @@
 # Cycles through every flagd failure flag, enabling it for 30 minutes,
 # then resetting before moving to the next. Total runtime: ~7 hours.
 
-set -euo pipefail
+set -uo pipefail
 
 TS=${1:-all_failures_5mins}
 OTELFL_ARGS="--ts $TS"
@@ -67,10 +67,12 @@ for entry in "${FLAGS[@]}"; do
 
     CSVFILE="$OUTDIR/${FLAG}_$(date '+%Y%m%d_%H%M%S').csv"
     echo "    Fetching metrics → $CSVFILE"
-    otelfl $OTELFL_ARGS fetch --url "$PROMETHEUS_URL" --outfile "$CSVFILE" --minutes $(( HOLD / 60 ))
+    otelfl $OTELFL_ARGS fetch --url "$PROMETHEUS_URL" --outfile "$CSVFILE" --minutes $(( HOLD / 60 )) \
+        || echo "    [WARN] Fetch failed, continuing..."
 
     echo "    Resetting $FLAG"
-    otelfl $OTELFL_ARGS flag reset "$FLAG"
+    otelfl $OTELFL_ARGS flag reset "$FLAG" \
+        || echo "    [WARN] Reset failed, continuing..."
 done
 
 echo ""
