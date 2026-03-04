@@ -17,6 +17,7 @@ from otelfl.cli import (
     stats_commands,
     experiment_commands,
     scenario_commands,
+    fetch_commands,
 )
 
 
@@ -52,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     stats_commands.register(subparsers, parents=[_common_parser])
     experiment_commands.register(subparsers, parents=[_common_parser])
     scenario_commands.register(subparsers, parents=[_common_parser])
+    fetch_commands.register(subparsers, parents=[_common_parser])
     subparsers.add_parser("tui", help="Launch interactive TUI", parents=[_common_parser])
 
     return parser
@@ -100,6 +102,8 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "experiment":
         logger = ExperimentLogger()
         code = experiment_commands.run(args, logger, console)
+    elif args.command == "fetch":
+        code = fetch_commands.run(args, console)
 
     # --- Timestamp logging ---
     ts_name = getattr(args, "ts", None)
