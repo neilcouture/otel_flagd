@@ -14,7 +14,7 @@ PROMETHEUS_URL="${OTELFL_PROMETHEUS_URL:-http://localhost:9090}"
 OUTDIR="${OTELFL_FETCH_OUTDIR:-./fetch_results}"
 mkdir -p "$OUTDIR"
 
-HOLD=300  # 5 minutes in seconds
+HOLD=120  # 5 minutes in seconds
 
 # Each entry: "flagName variant"
 # For boolean flags the variant is "on".
@@ -45,11 +45,11 @@ echo "    Estimated total: $(( TOTAL * HOLD / 60 )) minutes (~$(( TOTAL * HOLD /
 echo ""
 
 echo "=== Saving flag snapshot ==="
-SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX.json)
+SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX).json
 otelfl $OTELFL_ARGS flag snapshot "$SNAPSHOT"
 
 echo "=== Resetting all flags to baseline ==="
-otelfl $OTELFL_ARGS flag reset --all
+otelfl $OTELFL_ARGS flag reset all
 
 COUNT=0
 for entry in "${FLAGS[@]}"; do

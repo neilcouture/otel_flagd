@@ -41,11 +41,11 @@ echo "    Estimated total: $(( TOTAL * HOLD / 60 )) minutes (~$(( TOTAL * HOLD /
 echo ""
 
 echo "=== Saving flag snapshot ==="
-SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX.json)
+SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX).json
 otelfl $OTELFL_ARGS flag snapshot "$SNAPSHOT"
 
 echo "=== Resetting all flags to baseline ==="
-otelfl $OTELFL_ARGS flag reset --all
+otelfl $OTELFL_ARGS flag reset all
 
 COUNT=0
 for entry in "${FLAGS[@]}"; do

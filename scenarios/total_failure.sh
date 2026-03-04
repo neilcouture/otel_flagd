@@ -11,7 +11,7 @@ OTELFL_ARGS="--ts $TS"
 [ -n "${OTELFL_FLAGD_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --flagd-url $OTELFL_FLAGD_URL"
 
 echo "=== Saving flag snapshot ==="
-SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX.json)
+SNAPSHOT=$(mktemp /tmp/otelfl_snapshot_XXXXXX).json
 otelfl $OTELFL_ARGS flag snapshot "$SNAPSHOT"
 
 echo "=== Enabling all flags ==="
