@@ -11,9 +11,17 @@ OTELFL_ARGS="--ts $TS"
 [ -n "${OTELFL_FLAGD_URL:-}" ] && OTELFL_ARGS="$OTELFL_ARGS --flagd-url $OTELFL_FLAGD_URL"
 
 
-PROMETHEUS_URL="${OTELFL_PROMETHEUS_URL:-http://localhost:9090}"
+METRICS_URL="${OTELFL_METRICS_URL:-http://localhost:9090}"
 OUTDIR="${OTELFL_FETCH_OUTDIR:-./fetch_results}"
 mkdir -p "$OUTDIR"
+
+FETCH_ARGS=""
+SOURCE_TAG=""
+if [ -n "${DD_URL:-}" ]; then
+    METRICS_URL="$DD_URL"
+    FETCH_ARGS="--use-dd"
+    SOURCE_TAG="_dd"
+fi
 
 HOLD=3600  # minutes in seconds
 
@@ -73,9 +81,9 @@ for entry in "${FLAGS[@]}"; do
     echo "    Waiting 30s for services to settle..."
     sleep 30
 
-    CSVFILE="$OUTDIR/${FLAG}_$(date '+%Y%m%d_%H%M%S').csv"
+    CSVFILE="$OUTDIR/${FLAG}${SOURCE_TAG}_$(date '+%Y%m%d_%H%M%S').csv"
     echo "    Fetching metrics → $CSVFILE"
-    otelfl $OTELFL_ARGS fetch --url "$PROMETHEUS_URL" --outfile "$CSVFILE" --minutes $(( HOLD / 60 + 1 )) \
+    otelfl $OTELFL_ARGS fetch --url "$METRICS_URL" $FETCH_ARGS --outfile "$CSVFILE" --minutes $(( HOLD / 60 + 1 )) \
         || echo "    [WARN] Fetch failed, continuing..."
 done
 
