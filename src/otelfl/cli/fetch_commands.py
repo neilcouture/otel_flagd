@@ -60,7 +60,7 @@ def _discover_metrics(get_metrics_dataframe2, prometheus_url: str, max_retries: 
                 time.sleep(10 * attempt)
                 continue
             raise RuntimeError("No metrics found on Prometheus (empty response)")
-        return the_metrics_df["metric"]
+        return the_metrics_df["metric"].unique()
     raise RuntimeError("Failed to discover metrics")
 
 
